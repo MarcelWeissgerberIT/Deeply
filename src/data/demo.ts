@@ -9,8 +9,36 @@
  * tools. The shape it must return is CockpitState.
  */
 import { addDays, formatDayMonth, isoWeek, startOfDay, toDateOnly } from '../domain/dates';
-import type { Blocker, Delegation, Recipient, TimelineEvent } from '../domain/types';
+import type { Blocker, Delegation, Recipient, TimelineEvent, Workspace } from '../domain/types';
 import type { CockpitState } from '../state/cockpit';
+
+/** Invented tenants and projects; the real ones only appear in a private snapshot. */
+export const DEMO_WORKSPACES: Workspace[] = [
+  {
+    slug: 'muster-analytik',
+    title: 'Muster Analytik',
+    projects: [
+      { slug: 'probenwechsler', title: 'Probenwechsler' },
+      { slug: 'release-4-2', title: 'Release 4.2' },
+    ],
+  },
+  {
+    slug: 'beispiel-pharma',
+    title: 'Beispiel Pharma',
+    projects: [
+      { slug: 'lieferantenaudit', title: 'Lieferantenaudit' },
+      { slug: 'lims-qualifizierung', title: 'LIMS-Qualifizierung' },
+    ],
+  },
+  {
+    slug: 'eigene-produkte',
+    title: 'Eigene Produkte',
+    projects: [
+      { slug: 'dokumentation', title: 'Dokumentation' },
+      { slug: 'pilotkunden', title: 'Pilotkunden' },
+    ],
+  },
+];
 
 export const DEMO_RECIPIENTS: Recipient[] = [
   { id: 'lena', name: 'Lena Hoffmann', kind: 'person', role: 'QA-Leitung' },
@@ -65,6 +93,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd1',
       title: 'FMEA für den Probenwechsler aktualisieren',
       recipientId: 'tobias',
+      project: 'probenwechsler',
       source: 'polarion',
       sourceRef: 'DEMO-P-7781',
       context: 'Grundlage für das Design-Review Release 4.2',
@@ -83,6 +112,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd2',
       title: 'Testumgebung für Release 4.2 bereitstellen',
       recipientId: 'jonas',
+      project: 'release-4-2',
       source: 'jira',
       sourceRef: 'DEMO-REL-231',
       createdAt: ago(24 * 6),
@@ -99,6 +129,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd3',
       title: 'Changelog 4.1.3 aus den Atlas-Records erzeugen',
       recipientId: 'doku-agent',
+      project: 'release-4-2',
       source: 'atlas',
       sourceRef: 'DEMO-1187',
       createdAt: ago(30),
@@ -115,6 +146,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd4',
       title: 'Lieferantenaudit vorbereiten: Checkliste und Termine',
       recipientId: 'lena',
+      project: 'lieferantenaudit',
       source: 'mail',
       sourceRef: `vom ${dayLabel(9)}`,
       createdAt: ago(24 * 9),
@@ -130,6 +162,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd5',
       title: 'Benutzerhandbuch Kapitel 7 überarbeiten',
       recipientId: 'malte',
+      project: 'dokumentation',
       source: 'mail',
       sourceRef: `vom ${dayLabel(8)}`,
       createdAt: ago(24 * 8),
@@ -145,6 +178,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd6',
       title: 'Traceability-Matrix Release 4.2 mit Polarion abgleichen',
       recipientId: 'trace-agent',
+      project: 'release-4-2',
       source: 'atlas',
       sourceRef: 'DEMO-1203',
       createdAt: ago(28),
@@ -160,6 +194,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd7',
       title: 'Feedback der Pilotkunden auswerten',
       recipientId: 'aylin',
+      project: 'pilotkunden',
       source: 'meeting',
       sourceRef: `Produktrunde ${dayLabel(4)}`,
       context: 'Action Item aus der Produktrunde',
@@ -178,6 +213,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd8',
       title: 'Code-Review Login-Modul',
       recipientId: 'review-agent',
+      project: 'release-4-2',
       source: 'atlas',
       sourceRef: 'DEMO-1211',
       createdAt: ago(26),
@@ -193,6 +229,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd9',
       title: 'Testfälle für den Audit-Trail-Export schreiben',
       recipientId: 'sophie',
+      project: 'lims-qualifizierung',
       source: 'polarion',
       sourceRef: 'DEMO-P-7802',
       createdAt: ago(24 * 5),
@@ -205,6 +242,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd10',
       title: 'Release-Notes 4.2 entwerfen',
       recipientId: 'doku-agent',
+      project: 'release-4-2',
       source: 'atlas',
       sourceRef: 'DEMO-1219',
       createdAt: ago(8),
@@ -217,6 +255,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd11',
       title: 'Preisstaffel für Wartungsverträge kalkulieren',
       recipientId: 'aylin',
+      project: 'pilotkunden',
       source: 'mail',
       sourceRef: `vom ${dayLabel(6)}`,
       createdAt: ago(24 * 6),
@@ -229,6 +268,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd12',
       title: 'Befunde aus dem Pen-Test nachverfolgen',
       recipientId: 'jonas',
+      project: 'release-4-2',
       source: 'jira',
       sourceRef: 'DEMO-SEC-57',
       createdAt: ago(24 * 10),
@@ -241,6 +281,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd13',
       title: 'Wettbewerbsanalyse Probenmanagement',
       recipientId: 'recherche-agent',
+      project: 'pilotkunden',
       source: 'atlas',
       sourceRef: 'DEMO-1224',
       createdAt: ago(20),
@@ -253,6 +294,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd14',
       title: 'Kalibrierintervalle im LIMS prüfen',
       recipientId: 'sophie',
+      project: 'lims-qualifizierung',
       source: 'atlas',
       sourceRef: 'DEMO-1196',
       createdAt: ago(24 * 3),
@@ -268,6 +310,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd15',
       title: 'Schulungsunterlagen GMP-Grundlagen',
       recipientId: 'lena',
+      project: 'lims-qualifizierung',
       source: 'atlas',
       sourceRef: 'DEMO-1150',
       createdAt: ago(24 * 14),
@@ -281,6 +324,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd16',
       title: 'Dependency-Scan Release 4.1.3',
       recipientId: 'review-agent',
+      project: 'release-4-2',
       source: 'atlas',
       sourceRef: 'DEMO-1179',
       createdAt: ago(24 * 2),
@@ -294,6 +338,7 @@ export function createDemoState(now: Date): CockpitState {
       id: 'd17',
       title: 'Angebot für den Kalibrierservice einholen',
       recipientId: 'tobias',
+      project: 'probenwechsler',
       source: 'mail',
       sourceRef: `vom ${dayLabel(11)}`,
       createdAt: ago(24 * 11),
@@ -355,5 +400,5 @@ export function createDemoState(now: Date): CockpitState {
     },
   ];
 
-  return { recipients: DEMO_RECIPIENTS, delegations, blockers, settings: { staleDays: 3 } };
+  return { workspaces: DEMO_WORKSPACES, recipients: DEMO_RECIPIENTS, delegations, blockers, settings: { staleDays: 3 } };
 }

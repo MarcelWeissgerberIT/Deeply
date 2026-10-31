@@ -17,6 +17,7 @@ Läuft als Modul oder View auf Atlas und liest bestehende Systeme. Es ist kein w
 | 5 | Delegieren per Satz: „Gib X an Y bis Freitag“ legt die Aufgabe mit Owner, Frist und Kontext an | `src/domain/parseDelegation.ts`, `src/domain/parseDeadline.ts` |
 | 6 | Wochen-Digest: erledigt, gefährdet, braucht mich; als Text kopierbar | `src/domain/digest.ts`, `src/components/DigestView.tsx` |
 | 7 | Agenten gleichberechtigt: gleiche Karte, gleiche Ampel, Freigabe vor kritischen Schritten | `src/components/TeamView.tsx` |
+| + | Gruppierung nach Atlas-Tenant und Projekt, kritischste Gruppen zuerst; beim Delegieren wird das Projekt vorgeschlagen, in dem der Empfänger schon arbeitet | `src/domain/grouping.ts` |
 
 Jede Aktion landet mit Zeitstempel und Akteur im Verlauf der Delegation (Detailansicht). Das macht Verantwortlichkeiten nachvollziehbar.
 
@@ -28,6 +29,21 @@ Jede Aktion landet mit Zeitstempel und Akteur im Verlauf der Delegation (Detaila
 - Kontext nach Gedankenstrich, Semikolon oder `, Kontext:`
 
 Was nicht eindeutig ist, wird nicht geraten: unbekannte oder mehrdeutige Empfänger und unverständliche oder vergangene Fristen erzeugen einen konkreten Hinweis.
+
+## Daten: öffentlich nur Demo, echte Daten nur privat
+
+Das Repo und die GitHub-Pages-Seite sind öffentlich. Deshalb gilt:
+
+- Der Build enthält **nur erfundene Demo-Daten** (`src/data/demo.ts`): Tenants „Muster Analytik“, „Beispiel Pharma“, „Eigene Produkte“.
+- Echte Atlas-Daten (Tenants, Projekte, Personen, Tickets) kommen **nie ins Repo**. Ein privater Build kann einen Snapshot einbetten:
+  `<script type="application/json" id="cockpit-snapshot">{ "kind": "atlas-snapshot", "version": 1, … }</script>`
+- `src/data/snapshot.ts` prüft den Snapshot an der Grenze (Typen, Längen, Verweise) und lehnt fehlerhafte Daten mit einer konkreten Meldung ab, statt still auf Demo zurückzufallen.
+- Mit Snapshot läuft das Cockpit **nur lesend**: Nachfragen werden nicht gesendet, neue Delegationen bleiben lokal. Der Kopf zeigt „Atlas-Stand <Zeit> · nur lesen“.
+
+## Veröffentlichung
+
+`.github/workflows/pages.yml` testet, prüft die Abhängigkeiten (`npm audit`) und baut bei jedem Push auf `main`; das Ergebnis geht auf GitHub Pages.
+Voraussetzung in den Repo-Einstellungen: *Settings → Pages → Source: GitHub Actions*.
 
 ## Entwicklung
 
@@ -65,4 +81,4 @@ Der Reducer (`src/state/cockpit.ts`) ist rein: jede Aktion bringt ihren Zeitstem
 | `Blocker` (Freigabe) | Agent-Jobs, die auf meine Freigabe warten (Approvals) |
 | `Recipient` (Agent) | Agentenliste mit Owner |
 
-Die Auswahl „was habe ich abgegeben“ entspricht einer AQL-Abfrage wie `createdBy = <ich> AND assignee != <ich> AND status != done`. Atlas-Zugriff braucht einen serverseitigen Proxy, damit kein Token im Browser liegt.
+Die Auswahl „was habe ich abgegeben“ entspricht einer AQL-Abfrage wie `createdBy = <ich> AND assignee NOT IN (<meine Namen>) AND status != done`. Tenant und Projekt kommen aus der Projektliste (jedes Projekt gehört zu genau einem Tenant). Viele Atlas-Records haben kein `due`; das Cockpit führt sie dann „ohne Frist“ und bewertet nur das Lebenszeichen. Atlas-Zugriff braucht einen serverseitigen Proxy, damit kein Token im Browser liegt.

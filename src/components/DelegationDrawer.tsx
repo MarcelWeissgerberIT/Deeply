@@ -1,8 +1,9 @@
 /** Detail of one delegation: facts, Ampel reason, follow-up action and the full timeline (audit trail). */
 import { useEffect, useRef } from 'react';
 import { formatAgo, formatShortDate, parseDateOnly } from '../domain/dates';
+import { projectLabel } from '../domain/grouping';
 import { KEYED_SOURCES, SOURCE_LABEL, STATUS_LABEL } from '../domain/labels';
-import type { Assessment, Delegation, EventKind, Recipient } from '../domain/types';
+import type { Assessment, Delegation, EventKind, Recipient, Workspace } from '../domain/types';
 import { Avatar } from './Avatar';
 import { LightChip } from './LightChip';
 
@@ -23,13 +24,14 @@ interface Props {
   delegation: Delegation;
   assessment: Assessment;
   now: Date;
+  workspaces: Workspace[];
   recipientOf: (id: string) => Recipient;
   canAsk: boolean;
   onAsk: (delegationId: string) => void;
   onClose: () => void;
 }
 
-export function DelegationDrawer({ delegation: d, assessment, now, recipientOf, canAsk, onAsk, onClose }: Props) {
+export function DelegationDrawer({ delegation: d, assessment, now, workspaces, recipientOf, canAsk, onAsk, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const recipient = recipientOf(d.recipientId);
 
@@ -46,7 +48,7 @@ export function DelegationDrawer({ delegation: d, assessment, now, recipientOf, 
     };
   }, [onClose]);
 
-  const actorName = (actor: string) => (actor === 'me' ? 'Ich' : recipientOf(actor).name);
+  const actorName = (actor: string) => (actor === 'me' ? 'Ich' : actor === 'system' ? 'Atlas' : recipientOf(actor).name);
 
   return (
     <div className="drawer-layer">
@@ -74,13 +76,20 @@ export function DelegationDrawer({ delegation: d, assessment, now, recipientOf, 
               </span>
             </dd>
           </div>
+          <div className="facts__wide">
+            <dt>Tenant › Projekt</dt>
+            <dd>{projectLabel(d.project, workspaces)}</dd>
+          </div>
           <div>
             <dt>Frist</dt>
-            <dd className="mono">{formatShortDate(parseDateOnly(d.due))}</dd>
+            <dd className={d.due === null ? undefined : 'mono'}>{d.due === null ? 'keine' : formatShortDate(parseDateOnly(d.due))}</dd>
           </div>
           <div>
             <dt>Status</dt>
-            <dd>{STATUS_LABEL[d.status]}</dd>
+            <dd>
+              {STATUS_LABEL[d.status]}
+              {d.sourceStatus && <small className="facts__source-status">in {SOURCE_LABEL[d.source]}: {d.sourceStatus}</small>}
+            </dd>
           </div>
           <div>
             <dt>Lebenszeichen</dt>

@@ -4,8 +4,9 @@
  */
 import { assess, compareByUrgency } from './ampel';
 import { addDays, elapsedDays, formatDayMonth, formatDuration, isoWeek } from './dates';
+import { projectLabel } from './grouping';
 import { BLOCKER_LABEL } from './labels';
-import type { Assessment, Blocker, Delegation, Recipient, Settings } from './types';
+import type { Assessment, Blocker, Delegation, Recipient, Settings, Workspace } from './types';
 
 export interface Digest {
   weekLabel: string;
@@ -48,7 +49,8 @@ function nameOf(id: string, recipients: Recipient[]): string {
 }
 
 /** Plain text for pasting into mail or chat. */
-export function digestToText(digest: Digest, recipients: Recipient[]): string {
+export function digestToText(digest: Digest, recipients: Recipient[], workspaces: Workspace[]): string {
+  const who = (d: Delegation) => `${nameOf(d.recipientId, recipients)} · ${projectLabel(d.project, workspaces)}`;
   const red = digest.atRisk.filter((r) => r.assessment.light === 'red').length;
   const yellow = digest.atRisk.length - red;
   const lines = [
@@ -60,12 +62,12 @@ export function digestToText(digest: Digest, recipients: Recipient[]): string {
   const section = (title: string, rows: string[]) => {
     lines.push('', title, ...(rows.length ? rows : ['- nichts']));
   };
-  section('Erledigt', digest.done.map((d) => `- ${d.title} (${nameOf(d.recipientId, recipients)})`));
+  section('Erledigt', digest.done.map((d) => `- ${d.title} (${who(d)})`));
   section(
     'Gefährdet',
     digest.atRisk.map(
       ({ delegation: d, assessment: a }) =>
-        `- [${a.light === 'red' ? 'Rot' : 'Gelb'}] ${d.title} (${nameOf(d.recipientId, recipients)}): ${a.reason}`,
+        `- [${a.light === 'red' ? 'Rot' : 'Gelb'}] ${d.title} (${who(d)}): ${a.reason}`,
     ),
   );
   section(

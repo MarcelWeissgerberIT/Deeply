@@ -12,12 +12,15 @@ interface Props {
   delegations: Delegation[];
   now: Date;
   recipientOf: (id: string) => Recipient;
+  /** False in a read-only preview of real data: nothing may be sent to real people. */
+  canSend: boolean;
+  footnote: string;
   onSend: (delegationIds: string[]) => void;
   onEscalate: (delegationId: string) => void;
   onOpen: (delegationId: string) => void;
 }
 
-export function FollowUpPanel({ plans, delegations, now, recipientOf, onSend, onEscalate, onOpen }: Props) {
+export function FollowUpPanel({ plans, delegations, now, recipientOf, canSend, footnote, onSend, onEscalate, onOpen }: Props) {
   const byId = new Map(delegations.map((d) => [d.id, d]));
   const asks = plans.filter((p) => p.action === 'ask');
   const escalations = plans.filter((p) => p.action === 'escalate');
@@ -67,7 +70,7 @@ export function FollowUpPanel({ plans, delegations, now, recipientOf, onSend, on
                   <p>{composeRequest(d, r)}</p>
                 </details>
               )}
-              {plan.action === 'ask' && (
+              {plan.action === 'ask' && canSend && (
                 <div className="followup__actions">
                   <button type="button" className="btn" onClick={() => onSend([d.id])}>
                     Nachfrage senden
@@ -79,7 +82,7 @@ export function FollowUpPanel({ plans, delegations, now, recipientOf, onSend, on
         })}
       </ul>
 
-      {asks.length > 1 && (
+      {asks.length > 1 && canSend && (
         <button type="button" className="btn btn--primary btn--wide" onClick={() => onSend(asks.map((p) => p.delegationId))}>
           Alle {asks.length} Nachfragen senden
         </button>
@@ -102,7 +105,7 @@ export function FollowUpPanel({ plans, delegations, now, recipientOf, onSend, on
           </ul>
         </>
       )}
-      <p className="rail-panel__foot">Demo: Antworten werden nach wenigen Sekunden simuliert.</p>
+      <p className="rail-panel__foot">{footnote}</p>
     </section>
   );
 }

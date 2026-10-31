@@ -4,7 +4,7 @@
  * for my approval. Everything else is green.
  */
 import { calendarDaysBetween, daysDative, elapsedDays, formatDueRelative, parseDateOnly } from './dates';
-import type { Assessment, Delegation, Settings } from './types';
+import type { AssessedDelegation, Assessment, Delegation, Settings } from './types';
 
 export function assess(d: Delegation, now: Date, settings: Settings): Assessment {
   if (d.status === 'done') return { light: 'done', reason: 'erledigt' };
@@ -13,8 +13,8 @@ export function assess(d: Delegation, now: Date, settings: Settings): Assessment
     return { light: 'red', reason: d.blockedReason ? `blockiert: ${d.blockedReason}` : 'blockiert' };
   }
 
-  const daysToDue = calendarDaysBetween(now, parseDateOnly(d.due));
-  if (daysToDue < 0) return { light: 'red', reason: `überfällig seit ${daysDative(-daysToDue)}` };
+  const daysToDue = d.due === null ? null : calendarDaysBetween(now, parseDateOnly(d.due));
+  if (daysToDue !== null && daysToDue < 0) return { light: 'red', reason: `überfällig seit ${daysDative(-daysToDue)}` };
 
   if (d.followUp?.state === 'escalated') {
     return { light: 'red', reason: 'eskaliert: keine Antwort auf Nachfrage' };
@@ -25,7 +25,8 @@ export function assess(d: Delegation, now: Date, settings: Settings): Assessment
   const silent = Math.floor(elapsedDays(d.lastSignalAt, now));
   if (silent >= settings.staleDays) return { light: 'yellow', reason: `seit ${daysDative(silent)} ohne Update` };
 
-  if (daysToDue <= 2) return { light: 'green', reason: `fällig ${formatDueRelative(d.due, now)}` };
+  if (d.due === null) return { light: 'green', reason: 'läuft, ohne Frist' };
+  if (daysToDue !== null && daysToDue <= 2) return { light: 'green', reason: `fällig ${formatDueRelative(d.due, now)}` };
   return { light: 'green', reason: 'läuft' };
 }
 
@@ -36,11 +37,16 @@ export function isException(a: Assessment): boolean {
 
 const LIGHT_ORDER = { red: 0, yellow: 1, green: 2, done: 3 } as const;
 
+/** Deadlines in ascending order; items without deadline last. */
+export function compareDue(a: string | null, b: string | null): number {
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return a.localeCompare(b);
+}
+
 /** Sort key: red before yellow before green, then nearest deadline first. */
-export function compareByUrgency(
-  a: { delegation: Delegation; assessment: Assessment },
-  b: { delegation: Delegation; assessment: Assessment },
-): number {
+export function compareByUrgency(a: AssessedDelegation, b: AssessedDelegation): number {
   const byLight = LIGHT_ORDER[a.assessment.light] - LIGHT_ORDER[b.assessment.light];
-  return byLight !== 0 ? byLight : a.delegation.due.localeCompare(b.delegation.due);
+  return byLight !== 0 ? byLight : compareDue(a.delegation.due, b.delegation.due);
 }

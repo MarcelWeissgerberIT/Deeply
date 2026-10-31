@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assess, isException } from './ampel';
+import { assess, compareByUrgency, isException } from './ampel';
 import { NOW, SETTINGS, delegation, hoursAgo } from './testFixtures';
 
 describe('assess (Ampel)', () => {
@@ -60,5 +60,24 @@ describe('assess (Ampel)', () => {
     expect(isException({ light: 'yellow', reason: '' })).toBe(true);
     expect(isException({ light: 'green', reason: '' })).toBe(false);
     expect(isException({ light: 'done', reason: '' })).toBe(false);
+  });
+
+  it('treats a delegation without deadline as running while updates are fresh', () => {
+    expect(assess(delegation({ due: null }), NOW, SETTINGS)).toEqual({ light: 'green', reason: 'läuft, ohne Frist' });
+  });
+
+  it('still turns a delegation without deadline yellow when it goes silent', () => {
+    const a = assess(delegation({ due: null, lastSignalAt: hoursAgo(24 * 18) }), NOW, SETTINGS);
+    expect(a).toEqual({ light: 'yellow', reason: 'seit 18 Tagen ohne Update' });
+  });
+
+  it('sorts by light first, then nearest deadline, deadlines before none', () => {
+    const rows = [
+      delegation({ id: 'none', due: null, lastSignalAt: hoursAgo(24 * 5) }),
+      delegation({ id: 'late', due: '2026-11-20', lastSignalAt: hoursAgo(24 * 5) }),
+      delegation({ id: 'red', due: '2026-10-20' }),
+      delegation({ id: 'soon', due: '2026-11-02', lastSignalAt: hoursAgo(24 * 5) }),
+    ].map((d) => ({ delegation: d, assessment: assess(d, NOW, SETTINGS) }));
+    expect(rows.sort(compareByUrgency).map((r) => r.delegation.id)).toEqual(['red', 'soon', 'late', 'none']);
   });
 });

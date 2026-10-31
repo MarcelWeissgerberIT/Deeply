@@ -75,6 +75,12 @@ export function formatAgo(iso: string, now: Date): string {
   return `vor ${formatDuration(iso, now)}`;
 }
 
+/** "31.10. 09:40" (local time) */
+export function formatStamp(iso: string): string {
+  const d = new Date(iso);
+  return `${formatDayMonth(d)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 /** "25.10." */
 export function formatDayMonth(date: Date): string {
   return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.`;
