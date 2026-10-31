@@ -11,14 +11,16 @@ import { DigestView } from './components/DigestView';
 import { FollowUpPanel } from './components/FollowUpPanel';
 import { Segmented } from './components/Segmented';
 import { TeamView } from './components/TeamView';
-import { DEMO_EXAMPLES, createDemoState, demoReply } from './data/demo';
+import { DEMO_EXAMPLES, demoReply } from './data/demo';
+import { snapshotExamples, type DataInfo } from './data/snapshot';
 import { assess, compareByUrgency, isException } from './domain/ampel';
-import { formatShortDate, parseDateOnly } from './domain/dates';
+import { formatShortDate, formatStamp, parseDateOnly } from './domain/dates';
 import { buildDigest } from './domain/digest';
 import { composeRequest, planFollowUps } from './domain/followUp';
+import { suggestProject } from './domain/grouping';
 import type { DelegationDraft } from './domain/parseDelegation';
 import type { Blocker, Recipient, RecipientKind } from './domain/types';
-import type { Resolution } from './state/cockpit';
+import type { CockpitState, Resolution } from './state/cockpit';
 import { useCockpit } from './state/useCockpit';
 
 type View = 'cockpit' | 'team' | 'digest';
@@ -30,6 +32,7 @@ const VIEWS: { id: View; label: string }[] = [
 
 type Scope = 'exceptions' | 'open' | 'done';
 type KindFilter = 'all' | RecipientKind;
+type Grouping = 'tenant' | 'flat';
 
 interface Toast {
   id: number;
@@ -55,12 +58,15 @@ function useNow(intervalMs: number): Date {
   return now;
 }
 
-export function App() {
+export function App({ initial }: { initial: { state: CockpitState; info: DataInfo } }) {
   const now = useNow(60_000);
-  const { state, apply } = useCockpit(() => createDemoState(new Date()));
+  const { state, apply } = useCockpit(() => initial.state);
+  const info = initial.info;
+  const isDemo = info.kind === 'demo';
   const [view, setView] = useState<View>(viewFromHash);
   const [scope, setScope] = useState<Scope>('exceptions');
   const [kind, setKind] = useState<KindFilter>('all');
+  const [grouping, setGrouping] = useState<Grouping>('tenant');
   const [openId, setOpenId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const toastCounter = useRef(0);
@@ -108,6 +114,15 @@ export function App() {
     [state.delegations, state.blockers, state.settings, now],
   );
 
+  const examples = useMemo(
+    () => (isDemo ? DEMO_EXAMPLES : snapshotExamples(state.recipients, now)),
+    [isDemo, state.recipients, now],
+  );
+  const proposeProject = useCallback(
+    (recipientId: string) => suggestProject(state.delegations, recipientId, state.workspaces),
+    [state.delegations, state.workspaces],
+  );
+
   const counts = {
     red: rows.filter((r) => r.assessment.light === 'red').length,
     yellow: rows.filter((r) => r.assessment.light === 'yellow').length,
@@ -124,19 +139,24 @@ export function App() {
 
   // --- actions -------------------------------------------------------------
 
-  function delegate(draft: DelegationDraft): boolean {
+  function delegate(draft: DelegationDraft, project: string): boolean {
     const id = crypto.randomUUID();
-    const error = apply({ type: 'delegate', id, draft, now: new Date().toISOString() });
+    const error = apply({ type: 'delegate', id, draft, project, now: new Date().toISOString() });
     if (error) {
       notify(error, 'error');
       return false;
     }
     const who = recipientOf(draft.recipientId).name;
-    notify(`Delegiert an ${who}, Frist ${formatShortDate(parseDateOnly(draft.due))}. In Atlas angelegt (Demo: nur lokal).`, 'info', id);
+    const where = isDemo ? 'In Atlas angelegt (Demo: nur lokal).' : 'Nur in dieser Vorschau angelegt, nicht in Atlas.';
+    notify(`Delegiert an ${who}, Frist ${formatShortDate(parseDateOnly(draft.due))}. ${where}`, 'info', id);
     return true;
   }
 
   function sendFollowUps(ids: string[]) {
+    if (!isDemo) {
+      notify('In der Vorschau mit echten Daten wird nichts gesendet.', 'error');
+      return;
+    }
     for (const id of ids) {
       const d = state.delegations.find((x) => x.id === id);
       if (!d) {
@@ -192,7 +212,13 @@ export function App() {
   const canAsk = (id: string) => {
     const d = state.delegations.find((x) => x.id === id);
     if (!d) return false;
-    return d.status !== 'done' && d.status !== 'waiting-approval' && d.followUp?.state !== 'sent' && d.followUp?.state !== 'escalated';
+    return (
+      isDemo &&
+      d.status !== 'done' &&
+      d.status !== 'waiting-approval' &&
+      d.followUp?.state !== 'sent' &&
+      d.followUp?.state !== 'escalated'
+    );
   };
 
   // --- render --------------------------------------------------------------
@@ -219,12 +245,25 @@ export function App() {
                 </a>
               ))}
             </nav>
-            <span className="demo-badge" title="Erfundene Beispieldaten, keine Verbindung zu Atlas">
-              Demo-Daten
-            </span>
+            {isDemo ? (
+              <span className="demo-badge" title="Erfundene Beispieldaten, keine Verbindung zu Atlas">
+                Demo-Daten
+              </span>
+            ) : (
+              <span className="demo-badge demo-badge--live" title="Stand aus Atlas, nur lesend. Nichts wird gesendet.">
+                Atlas-Stand {info.kind === 'snapshot' ? formatStamp(info.takenAt) : ''} · nur lesen
+              </span>
+            )}
           </div>
 
-          <CommandBar recipients={state.recipients} now={now} examples={DEMO_EXAMPLES} onDelegate={delegate} />
+          <CommandBar
+            recipients={state.recipients}
+            workspaces={state.workspaces}
+            now={now}
+            examples={examples}
+            suggestProject={proposeProject}
+            onDelegate={delegate}
+          />
 
           <div className="readouts" role="group" aria-label="Lage">
             <Readout tone="red" value={counts.red} label="Rot" hint="überfällig oder blockiert" />
@@ -262,6 +301,15 @@ export function App() {
                       { value: 'agent', label: 'Agenten' },
                     ]}
                   />
+                  <Segmented
+                    label="Gruppierung"
+                    value={grouping}
+                    onChange={setGrouping}
+                    options={[
+                      { value: 'tenant', label: 'Tenant › Projekt' },
+                      { value: 'flat', label: 'Liste' },
+                    ]}
+                  />
                   <label className="threshold" htmlFor="stale-days">
                     Gelb nach
                     <select id="stale-days" value={state.settings.staleDays} onChange={(e) => setStaleDays(Number(e.target.value))}>
@@ -277,6 +325,8 @@ export function App() {
               </div>
               <DelegationList
                 rows={visible}
+                grouped={grouping === 'tenant'}
+                workspaces={state.workspaces}
                 now={now}
                 recipientOf={recipientOf}
                 onOpen={setOpenId}
@@ -311,6 +361,12 @@ export function App() {
                 delegations={state.delegations}
                 now={now}
                 recipientOf={recipientOf}
+                canSend={isDemo}
+                footnote={
+                  isDemo
+                    ? 'Demo: Antworten werden nach wenigen Sekunden simuliert.'
+                    : 'Vorschau mit echten Daten: Nachfragen werden nicht gesendet.'
+                }
                 onSend={sendFollowUps}
                 onEscalate={escalate}
                 onOpen={setOpenId}
@@ -319,7 +375,9 @@ export function App() {
           </div>
         )}
         {view === 'team' && <TeamView recipients={state.recipients} rows={rows} blockers={state.blockers} onOpen={setOpenId} />}
-        {view === 'digest' && <DigestView digest={digest} recipients={state.recipients} recipientOf={recipientOf} onOpen={setOpenId} />}
+        {view === 'digest' && (
+          <DigestView digest={digest} recipients={state.recipients} workspaces={state.workspaces} recipientOf={recipientOf} onOpen={setOpenId} />
+        )}
       </main>
 
       {openRow && (
@@ -327,6 +385,7 @@ export function App() {
           delegation={openRow.delegation}
           assessment={openRow.assessment}
           now={now}
+          workspaces={state.workspaces}
           recipientOf={recipientOf}
           canAsk={canAsk(openRow.delegation.id)}
           onAsk={(id) => sendFollowUps([id])}

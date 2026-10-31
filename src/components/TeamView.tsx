@@ -62,9 +62,11 @@ export function TeamView({ recipients, rows, blockers, onOpen }: Props) {
               <Avatar recipient={c.recipient} size="lg" />
               <div>
                 <h2 className="member__name">{c.recipient.name}</h2>
-                <p className="member__role">
-                  {c.recipient.kind === 'agent' ? <span className="tag">Agent</span> : null} {c.recipient.role}
-                </p>
+                {(c.recipient.kind === 'agent' || c.recipient.role) && (
+                  <p className="member__role">
+                    {c.recipient.kind === 'agent' ? <span className="tag">Agent</span> : null} {c.recipient.role}
+                  </p>
+                )}
               </div>
             </div>
             <div className="member__lights" aria-label="Ampel">
@@ -94,7 +96,7 @@ export function TeamView({ recipients, rows, blockers, onOpen }: Props) {
                     <button type="button" className="mini" data-light={assessment.light} onClick={() => onOpen(d.id)}>
                       <span className="mini__dot" aria-hidden="true" />
                       <span className="mini__title">{d.title}</span>
-                      <span className="mini__due mono">{formatShortDate(parseDateOnly(d.due))}</span>
+                      <span className="mini__due mono">{d.due === null ? '–' : formatShortDate(parseDateOnly(d.due))}</span>
                     </button>
                   </li>
                 ))}

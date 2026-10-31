@@ -4,10 +4,11 @@
  * Invalid actions throw with a German message; nothing fails silently.
  */
 import type { DelegationDraft } from '../domain/parseDelegation';
-import type { Blocker, Delegation, EventKind, Recipient, Settings } from '../domain/types';
+import type { Blocker, Delegation, EventKind, Recipient, Settings, Workspace } from '../domain/types';
 import { BLOCKER_LABEL } from '../domain/labels';
 
 export interface CockpitState {
+  workspaces: Workspace[];
   recipients: Recipient[];
   delegations: Delegation[];
   blockers: Blocker[];
@@ -21,7 +22,7 @@ export type Resolution =
   | { kind: 'input'; text: string };
 
 export type CockpitAction =
-  | { type: 'delegate'; id: string; draft: DelegationDraft; now: string }
+  | { type: 'delegate'; id: string; draft: DelegationDraft; project: string; now: string }
   | { type: 'followUpSent'; delegationId: string; message: string; now: string }
   | { type: 'replyReceived'; delegationId: string; text: string; now: string }
   | { type: 'escalate'; delegationId: string; now: string }
@@ -103,14 +104,18 @@ function resolveBlocker(state: CockpitState, blockerId: string, resolution: Reso
 export function cockpitReducer(state: CockpitState, action: CockpitAction): CockpitState {
   switch (action.type) {
     case 'delegate': {
-      const { draft, id, now } = action;
+      const { draft, id, project, now } = action;
       if (!state.recipients.some((r) => r.id === draft.recipientId)) {
         throw new Error(`Empfänger „${draft.recipientId}“ nicht gefunden.`);
+      }
+      if (!state.workspaces.some((w) => w.projects.some((p) => p.slug === project))) {
+        throw new Error(`Projekt „${project}“ nicht gefunden.`);
       }
       const created: Delegation = {
         id,
         title: draft.title,
         recipientId: draft.recipientId,
+        project,
         source: 'atlas',
         sourceRef: 'neu',
         createdAt: now,

@@ -1,19 +1,21 @@
 /** Wochen-Digest: done, endangered, needs me. Replaces the weekly status round. */
 import { useRef, useState } from 'react';
 import { digestToText, type Digest } from '../domain/digest';
+import { projectLabel } from '../domain/grouping';
 import { BLOCKER_LABEL } from '../domain/labels';
-import type { Recipient } from '../domain/types';
+import type { Recipient, Workspace } from '../domain/types';
 import { LightChip } from './LightChip';
 
 interface Props {
   digest: Digest;
   recipients: Recipient[];
+  workspaces: Workspace[];
   recipientOf: (id: string) => Recipient;
   onOpen: (delegationId: string) => void;
 }
 
-export function DigestView({ digest, recipients, recipientOf, onOpen }: Props) {
-  const text = digestToText(digest, recipients);
+export function DigestView({ digest, recipients, workspaces, recipientOf, onOpen }: Props) {
+  const text = digestToText(digest, recipients, workspaces);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'manual'>('idle');
   const red = digest.atRisk.filter((r) => r.assessment.light === 'red').length;
@@ -72,7 +74,9 @@ export function DigestView({ digest, recipients, recipientOf, onOpen }: Props) {
                   <button type="button" className="link" onClick={() => onOpen(d.id)}>
                     {d.title}
                   </button>
-                  <span className="digest__by">{recipientOf(d.recipientId).name}</span>
+                  <span className="digest__by">
+                    {recipientOf(d.recipientId).name} · {projectLabel(d.project, workspaces)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -89,7 +93,9 @@ export function DigestView({ digest, recipients, recipientOf, onOpen }: Props) {
                   <button type="button" className="link" onClick={() => onOpen(d.id)}>
                     {d.title}
                   </button>
-                  <span className="digest__by">{recipientOf(d.recipientId).name}</span>
+                  <span className="digest__by">
+                    {recipientOf(d.recipientId).name} · {projectLabel(d.project, workspaces)}
+                  </span>
                   <LightChip assessment={assessment} />
                 </li>
               ))}

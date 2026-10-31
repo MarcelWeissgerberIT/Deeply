@@ -16,6 +16,8 @@ describe('demo data', () => {
       expect(recipientIds.has(d.recipientId)).toBe(true);
       for (const e of d.events) expect(e.actor === 'me' || recipientIds.has(e.actor)).toBe(true);
     }
+    const projects = new Set(state.workspaces.flatMap((w) => w.projects.map((p) => p.slug)));
+    for (const d of state.delegations) expect(projects.has(d.project)).toBe(true);
     for (const b of state.blockers) {
       expect(recipientIds.has(b.requestedBy)).toBe(true);
       if (b.delegationId) expect(delegationIds.has(b.delegationId)).toBe(true);

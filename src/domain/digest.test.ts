@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { buildDigest, digestToText } from './digest';
 import type { Blocker } from './types';
-import { NOW, RECIPIENTS, SETTINGS, delegation, hoursAgo } from './testFixtures';
+import { NOW, RECIPIENTS, SETTINGS, WORKSPACES, delegation, hoursAgo } from './testFixtures';
 
 const items = [
   delegation({ id: 'done-recent', title: 'Schulung GMP', status: 'done', doneAt: hoursAgo(48) }),
   delegation({ id: 'done-old', title: 'Altes Thema', status: 'done', doneAt: hoursAgo(24 * 10) }),
   delegation({ id: 'yellow', title: 'Auditvorbereitung', lastSignalAt: hoursAgo(24 * 5), due: '2026-11-05' }),
-  delegation({ id: 'red', title: 'FMEA', recipientId: 'jonas', due: '2026-10-29' }),
+  delegation({ id: 'red', title: 'FMEA', recipientId: 'jonas', project: 'release', due: '2026-10-29' }),
   delegation({ id: 'green', title: 'Release-Notes' }),
 ];
 
@@ -40,17 +40,17 @@ describe('buildDigest', () => {
   });
 
   it('renders a plain-text summary for mail or chat', () => {
-    expect(digestToText(digest, RECIPIENTS)).toBe(
+    expect(digestToText(digest, RECIPIENTS, WORKSPACES)).toBe(
       [
         'Wochen-Digest KW 44 (25.10.–31.10.)',
         '1 erledigt · 1 kritisch · 1 gefährdet · 2 brauchen mich',
         '',
         'Erledigt',
-        '- Schulung GMP (Lena Hoffmann)',
+        '- Schulung GMP (Lena Hoffmann · Kunde A › Gerät)',
         '',
         'Gefährdet',
-        '- [Rot] FMEA (Jonas Becker): überfällig seit 2 Tagen',
-        '- [Gelb] Auditvorbereitung (Lena Hoffmann): seit 5 Tagen ohne Update',
+        '- [Rot] FMEA (Jonas Becker · Kunde A › Release): überfällig seit 2 Tagen',
+        '- [Gelb] Auditvorbereitung (Lena Hoffmann · Kunde A › Gerät): seit 5 Tagen ohne Update',
         '',
         'Braucht mich',
         '- Freigabe: Merge freigeben (Review-Agent, wartet seit 1 T)',

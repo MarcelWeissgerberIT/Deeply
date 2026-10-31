@@ -11,6 +11,7 @@ import {
   formatShortDate,
   parseDateOnly,
 } from './dates';
+import { compareDue } from './ampel';
 import type { Delegation, Recipient, Settings } from './types';
 
 export interface FollowUpPlan {
@@ -35,15 +36,15 @@ function planFor(d: Delegation, now: Date, settings: Settings): FollowUpPlan | n
     return { delegationId: d.id, action: 'escalate', reason: `keine Antwort seit ${Math.floor(waited)} T` };
   }
 
-  const daysToDue = calendarDaysBetween(now, parseDateOnly(d.due));
-  if (daysToDue < 0) return { delegationId: d.id, action: 'ask', reason: `überfällig seit ${daysDative(-daysToDue)}` };
+  const daysToDue = d.due === null ? null : calendarDaysBetween(now, parseDateOnly(d.due));
+  if (daysToDue !== null && daysToDue < 0) return { delegationId: d.id, action: 'ask', reason: `überfällig seit ${daysDative(-daysToDue)}` };
 
   const silent = elapsedDays(d.lastSignalAt, now);
   if (silent >= settings.staleDays) {
     return { delegationId: d.id, action: 'ask', reason: `seit ${daysDative(Math.floor(silent))} ohne Update` };
   }
   if (silent >= settings.staleDays - 1) return { delegationId: d.id, action: 'ask', reason: 'kippt morgen auf Gelb' };
-  if (daysToDue <= DEADLINE_WINDOW_DAYS && silent >= 1) {
+  if (d.due !== null && daysToDue !== null && daysToDue <= DEADLINE_WINDOW_DAYS && silent >= 1) {
     return {
       delegationId: d.id,
       action: 'ask',
@@ -60,16 +61,16 @@ export function planFollowUps(delegations: Delegation[], now: Date, settings: Se
     .filter((p): p is FollowUpPlan => p !== null)
     .sort((a, b) => {
       if (a.action !== b.action) return a.action === 'escalate' ? -1 : 1;
-      return (dueOf.get(a.delegationId) ?? '').localeCompare(dueOf.get(b.delegationId) ?? '');
+      return compareDue(dueOf.get(a.delegationId) ?? null, dueOf.get(b.delegationId) ?? null);
     });
 }
 
 /** The status request the cockpit sends on my behalf. */
 export function composeRequest(d: Delegation, recipient: Recipient): string {
-  const due = formatShortDate(parseDateOnly(d.due));
+  const due = d.due === null ? '' : ` (fällig ${formatShortDate(parseDateOnly(d.due))})`;
   if (recipient.kind === 'agent') {
-    return `Statusabfrage an ${recipient.name}: Bitte Fortschritt, nächsten Schritt und offene Freigaben zu „${d.title}“ melden (fällig ${due}).`;
+    return `Statusabfrage an ${recipient.name}: Bitte Fortschritt, nächsten Schritt und offene Freigaben zu „${d.title}“ melden${due}.`;
   }
   const firstName = recipient.name.split(' ')[0];
-  return `Hallo ${firstName}, kurze Nachfrage zu „${d.title}“ (fällig ${due}): Wie ist der Stand, und brauchst du etwas von mir? Ein Satz als Antwort reicht, er landet direkt als Update im Cockpit. Danke!`;
+  return `Hallo ${firstName}, kurze Nachfrage zu „${d.title}“${due}: Wie ist der Stand, und brauchst du etwas von mir? Ein Satz als Antwort reicht, er landet direkt als Update im Cockpit. Danke!`;
 }

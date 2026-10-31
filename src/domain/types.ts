@@ -18,6 +18,19 @@ export interface Recipient {
   owner?: string;
 }
 
+/** A project inside an Atlas tenant (workspace). */
+export interface Project {
+  slug: string;
+  title: string;
+}
+
+/** An Atlas tenant (workspace) with its projects. */
+export interface Workspace {
+  slug: string;
+  title: string;
+  projects: Project[];
+}
+
 /** System the delegated work lives in. The cockpit links there, it never copies. */
 export type Source = 'atlas' | 'jira' | 'polarion' | 'mail' | 'meeting';
 
@@ -44,7 +57,7 @@ export interface TimelineEvent {
   /** ISO timestamp. */
   at: string;
   kind: EventKind;
-  /** Recipient id, or 'me' for the cockpit owner. */
+  /** Recipient id, 'me' for the cockpit owner, or 'system' for the source system itself. */
   actor: string;
   text: string;
 }
@@ -61,13 +74,17 @@ export interface Delegation {
   id: string;
   title: string;
   recipientId: string;
+  /** Slug of the Atlas project the work belongs to. */
+  project: string;
   source: Source;
   /** Reference in the source system (Atlas ref, Jira key, Polarion id, …). */
   sourceRef: string;
+  /** Status as the source system names it, when it differs from the cockpit's status. */
+  sourceStatus?: string;
   context?: string;
-  createdAt: string;
-  /** Deadline as calendar date YYYY-MM-DD. */
-  due: string;
+  createdAt?: string;
+  /** Deadline as calendar date YYYY-MM-DD, or null when the source has none. */
+  due: string | null;
   status: DelegationStatus;
   /** Reason shown when the status is blocked. */
   blockedReason?: string;
@@ -103,6 +120,11 @@ export interface Assessment {
   light: Light;
   /** Short German explanation, e.g. "überfällig seit 2 Tagen". */
   reason: string;
+}
+
+export interface AssessedDelegation {
+  delegation: Delegation;
+  assessment: Assessment;
 }
 
 export interface Settings {

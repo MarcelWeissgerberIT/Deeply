@@ -70,6 +70,23 @@ describe('planFollowUps', () => {
   });
 });
 
+describe('planFollowUps without deadline', () => {
+  it('asks only because of silence', () => {
+    expect(planFollowUps([delegation({ due: null, lastSignalAt: hoursAgo(26) })], NOW, SETTINGS)).toEqual([]);
+    expect(planFollowUps([delegation({ due: null, lastSignalAt: hoursAgo(24 * 9) })], NOW, SETTINGS)).toEqual([
+      { delegationId: 'd1', action: 'ask', reason: 'seit 9 Tagen ohne Update' },
+    ]);
+  });
+
+  it('lists items without deadline after those with one', () => {
+    const items = [
+      delegation({ id: 'none', due: null, lastSignalAt: hoursAgo(24 * 4) }),
+      delegation({ id: 'dated', due: '2026-11-10', lastSignalAt: hoursAgo(24 * 4) }),
+    ];
+    expect(planFollowUps(items, NOW, SETTINGS).map((p) => p.delegationId)).toEqual(['dated', 'none']);
+  });
+});
+
 describe('composeRequest', () => {
   it('writes a friendly question to people, addressed by first name', () => {
     const text = composeRequest(delegation(), lena);
@@ -82,6 +99,12 @@ describe('composeRequest', () => {
     const text = composeRequest(delegation({ recipientId: 'review-agent' }), agent);
     expect(text).toBe(
       'Statusabfrage an Review-Agent: Bitte Fortschritt, nächsten Schritt und offene Freigaben zu „Testfälle schreiben“ melden (fällig Fr 06.11.).',
+    );
+  });
+
+  it('leaves out the deadline when there is none', () => {
+    expect(composeRequest(delegation({ due: null }), lena)).toBe(
+      'Hallo Lena, kurze Nachfrage zu „Testfälle schreiben“: Wie ist der Stand, und brauchst du etwas von mir? Ein Satz als Antwort reicht, er landet direkt als Update im Cockpit. Danke!',
     );
   });
 });

@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { cockpitReducer, type CockpitState } from './cockpit';
 import type { Blocker } from '../domain/types';
-import { NOW, RECIPIENTS, delegation, hoursAgo } from '../domain/testFixtures';
+import { NOW, RECIPIENTS, WORKSPACES, delegation, hoursAgo } from '../domain/testFixtures';
 
 const nowIso = NOW.toISOString();
 
 function state(overrides: Partial<CockpitState> = {}): CockpitState {
   return {
+    workspaces: WORKSPACES,
     recipients: RECIPIENTS,
     delegations: [delegation()],
     blockers: [],
@@ -31,6 +32,7 @@ describe('cockpitReducer', () => {
       type: 'delegate',
       id: 'new-1',
       draft: { title: 'FMEA', recipientId: 'lena', due: '2026-11-06', context: 'Audit' },
+      project: 'handbuch',
       now: nowIso,
     });
     expect(next.delegations).toHaveLength(1);
@@ -39,14 +41,26 @@ describe('cockpitReducer', () => {
       id: 'new-1',
       title: 'FMEA',
       recipientId: 'lena',
+      project: 'handbuch',
       source: 'atlas',
       due: '2026-11-06',
       context: 'Audit',
       status: 'open',
-      createdAt: nowIso,
       lastSignalAt: nowIso,
     });
     expect(created.events).toEqual([{ at: nowIso, kind: 'created', actor: 'me', text: 'Delegiert per Satz, in Atlas angelegt' }]);
+  });
+
+  it('refuses to delegate into an unknown project', () => {
+    expect(() =>
+      cockpitReducer(state(), {
+        type: 'delegate',
+        id: 'x',
+        draft: { title: 'FMEA', recipientId: 'lena', due: '2026-11-06' },
+        project: 'gibt-es-nicht',
+        now: nowIso,
+      }),
+    ).toThrow('Projekt „gibt-es-nicht“ nicht gefunden.');
   });
 
   it('records a sent follow-up without counting it as a sign of life', () => {
